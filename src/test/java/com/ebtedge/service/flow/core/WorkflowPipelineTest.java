@@ -32,7 +32,7 @@ class WorkflowPipelineTest {
 
     // Helper method to create pipelines with configuration
     private <T> WorkflowPipeline<T> startPipeline(T initialData) {
-        return startPipeline(initialData, properties, meterRegistry);
+        return WorkflowPipeline.startWith(initialData, properties, meterRegistry);
     }
 
     @Test
