@@ -8,6 +8,7 @@ public class WorkflowException extends RuntimeException {
     private final ErrorDetails error;
 
     public WorkflowException(ErrorDetails error) {
+        super(error.message());
         this.error = error;
     }
 }
