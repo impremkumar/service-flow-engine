@@ -73,7 +73,8 @@ public class OpaServiceImpl implements OpaService {
                     .nextStep("MergeAndBuildCardholders", this::mergeAndBuildCardholders)
                     .peek(ctx -> log.debug("Built {} cardholder(s)", ctx.cardholders().size()))
                     .nextStep("BuildSearchResult", this::buildSearchResult)
-                    .mapToUI(result1 -> result1);
+                    .mapToUI(result1 -> result1)
+                    .result();
 
             log.info("Successfully completed cardholder search for cardNumber: {}, found {} cardholder(s)",
                     maskCardNumber(searchCriteria.cardNumber()),

@@ -14,34 +14,29 @@ server:
     include-binding-errors: always
 
 # Actuator endpoints for monitoring
-management:
-  endpoints:
-    web:
-      exposure:
-        include: health,metrics,info,prometheus
-      base-path: /actuator
-  endpoint:
-    health:
-      show-details: when-authorized
-      probes:
-        enabled: true
-  metrics:
-    tags:
-      application: ${spring.application.name}
-      environment: ${spring.profiles.active:default}
-    distribution:
-      percentiles-histogram:
-        http.server.requests: true
-  health:
-    livenessstate:
-      enabled: true
-    readinessstate:
-      enabled: true
+
 
 # Service Flow Engine Configuration
 service-flow:
   metrics-enabled: true
   metric-name: workflow.step.latency
+  kafka:
+    enabled: false  # Disabled by default; enable in specific environments
+    bootstrap-servers: "localhost:9092"
+    topic: "workflow-events"
+    retry-attempts: 3
+    timeout-seconds: 100
+    async:
+      core-pool-size: 2
+      max-pool-size: 10
+      queue-capacity: 100
+      thread-name-prefix: "kafka-event-"
+    producer:
+      acks: "1"
+      batch-size: 16384
+      linger-ms: 10
+      buffer-memory: 33554432
+      compression-type: "snappy"
 
 # Logging configuration
 logging:
