@@ -1,6 +1,7 @@
 package com.ebtedge.service.flow.core;
 
 import com.ebtedge.service.flow.autoconfigure.ServiceFlowProperties;
+import com.ebtedge.service.flow.event.KafkaEventPublishingService;
 import com.ebtedge.service.flow.exception.WorkflowException;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Metrics;
@@ -14,11 +15,13 @@ public class WorkflowPipeline<T> {
     private final ResponseWrapper<T> currentResult;
     private final ServiceFlowProperties properties;
     private final MeterRegistry meterRegistry;
+    private final KafkaEventPublishingService kafkaPublishingService;
 
-    private WorkflowPipeline(ResponseWrapper<T> result, ServiceFlowProperties properties, MeterRegistry meterRegistry) {
+    private WorkflowPipeline(ResponseWrapper<T> result, ServiceFlowProperties properties, MeterRegistry meterRegistry, KafkaEventPublishingService kafkaPublishingService) {
         this.currentResult = result;
         this.properties = properties;
         this.meterRegistry = meterRegistry;
+        this.kafkaPublishingService = kafkaPublishingService;
     }
 
     /**
@@ -28,12 +31,13 @@ public class WorkflowPipeline<T> {
      * @param initialData The starting data
      * @param properties Configuration properties
      * @param meterRegistry Metrics registry
+     * @param kafkaPublishingService Kafka event publishing service (nullable)
      * @param <T> The type of the initial data
      * @return A new WorkflowPipeline instance
      */
-    public static <T> WorkflowPipeline<T> startWith(T initialData, ServiceFlowProperties properties, MeterRegistry meterRegistry) {
+    public static <T> WorkflowPipeline<T> startWith(T initialData, ServiceFlowProperties properties, MeterRegistry meterRegistry, KafkaEventPublishingService kafkaPublishingService) {
         log.debug("Starting workflow pipeline with initial data: {}", initialData);
-        return new WorkflowPipeline<>(ResponseWrapper.success(initialData), properties, meterRegistry);
+        return new WorkflowPipeline<>(ResponseWrapper.success(initialData), properties, meterRegistry, kafkaPublishingService);
     }
 
     /**
@@ -49,13 +53,13 @@ public class WorkflowPipeline<T> {
     public static <T> WorkflowPipeline<T> startWith(T initialData) {
         log.debug("Starting workflow pipeline with initial data (deprecated method): {}", initialData);
         ServiceFlowProperties defaultProps = new ServiceFlowProperties();
-        return new WorkflowPipeline<>(ResponseWrapper.success(initialData), defaultProps, Metrics.globalRegistry);
+        return new WorkflowPipeline<>(ResponseWrapper.success(initialData), defaultProps, Metrics.globalRegistry, null);
     }
 
     public <Next> WorkflowPipeline<Next> nextStep(String stepName, Function<T, ResponseWrapper<Next>> step) {
         if (!currentResult.isSuccess()) {
             log.debug("Skipping step '{}' due to previous failure: {}", stepName, currentResult.getError());
-            return new WorkflowPipeline<>(ResponseWrapper.fail(currentResult.getError()), properties, meterRegistry);
+            return new WorkflowPipeline<>(ResponseWrapper.fail(currentResult.getError()), properties, meterRegistry, kafkaPublishingService);
         }
 
         log.info("Executing workflow step: {}", stepName);
@@ -86,7 +90,7 @@ public class WorkflowPipeline<T> {
                 log.warn("Step '{}' failed{} with error: {}", stepName,
                     sample != null ? " in " + duration + "ms" : "", nextResult.getError());
             }
-            return new WorkflowPipeline<>(nextResult, properties, meterRegistry);
+            return new WorkflowPipeline<>(nextResult, properties, meterRegistry, kafkaPublishingService);
         } catch (Exception e) {
             if (sample != null) {
                 Timer timer = Timer.builder(properties.getMetricName())
@@ -110,7 +114,7 @@ public class WorkflowPipeline<T> {
         return this;
     }
 
-    public <R> R mapToUI(Function<T, R> finalMapper) {
+    public <R> WorkflowResult<R> mapToUI(Function<T, R> finalMapper) {
         if (!currentResult.isSuccess()) {
             log.error("Pipeline failed, throwing WorkflowException: {}", currentResult.getError());
             throw new WorkflowException(currentResult.getError());
@@ -118,6 +122,6 @@ public class WorkflowPipeline<T> {
         log.info("Mapping workflow result to UI response");
         R result = finalMapper.apply(currentResult.getData());
         log.debug("Final UI response: {}", result);
-        return result;
+        return new WorkflowResult<>(result, properties, kafkaPublishingService);
     }
 }

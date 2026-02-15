@@ -35,7 +35,8 @@ class WorkflowPipelineFactoryTest {
 
         Integer result = factory.startWith(10)
                 .nextStep("doubleIt", x -> ResponseWrapper.success(x * 2))
-                .mapToUI(x -> x);
+                .mapToUI(x -> x)
+                .result();
 
         assertEquals(20, result);
 
@@ -51,7 +52,8 @@ class WorkflowPipelineFactoryTest {
 
         Integer result = factory.startWith(5)
                 .nextStep("multiplyBy3", x -> ResponseWrapper.success(x * 3))
-                .mapToUI(x -> x);
+                .mapToUI(x -> x)
+                .result();
 
         assertEquals(15, result);
 

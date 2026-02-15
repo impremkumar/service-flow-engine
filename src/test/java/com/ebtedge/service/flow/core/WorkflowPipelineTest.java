@@ -32,7 +32,7 @@ class WorkflowPipelineTest {
 
     // Helper method to create pipelines with configuration
     private <T> WorkflowPipeline<T> startPipeline(T initialData) {
-        return WorkflowPipeline.startWith(initialData, properties, meterRegistry);
+        return WorkflowPipeline.startWith(initialData, properties, meterRegistry, null);
     }
 
     @Test
@@ -54,7 +54,8 @@ class WorkflowPipelineTest {
         String result = startPipeline(10)
                 .nextStep("double", x -> ResponseWrapper.success(x * 2))
                 .nextStep("toString", x -> ResponseWrapper.success(String.valueOf(x)))
-                .mapToUI(s -> s + "!");
+                .mapToUI(s -> s + "!")
+                .result();
 
         assertEquals("20!", result);
     }
@@ -67,7 +68,8 @@ class WorkflowPipelineTest {
             startPipeline("data")
                     .nextStep("failingStep", x -> ResponseWrapper.fail(error))
                     .nextStep("shouldNotExecute", x -> ResponseWrapper.success("never"))
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
     }
 
@@ -90,7 +92,8 @@ class WorkflowPipelineTest {
                         executedSteps.add("step3");
                         return ResponseWrapper.success(x);
                     })
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
 
         assertEquals(2, executedSteps.size());
@@ -108,7 +111,8 @@ class WorkflowPipelineTest {
                     .nextStep("exceptionStep", x -> {
                         throw testException;
                     })
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
     }
 
@@ -118,7 +122,8 @@ class WorkflowPipelineTest {
 
         String result = startPipeline("data")
                 .peek(x -> peeked.set(true))
-                .mapToUI(x -> x);
+                .mapToUI(x -> x)
+                .result();
 
         assertTrue(peeked.get());
         assertEquals("data", result);
@@ -133,7 +138,8 @@ class WorkflowPipelineTest {
             startPipeline("data")
                     .nextStep("fail", x -> ResponseWrapper.fail(error))
                     .peek(x -> peeked.set(true))
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
 
         assertFalse(peeked.get());
@@ -142,7 +148,8 @@ class WorkflowPipelineTest {
     @Test
     void testMapToUI_Success() {
         Integer result = startPipeline("5")
-                .mapToUI(Integer::parseInt);
+                .mapToUI(Integer::parseInt)
+                .result();
 
         assertEquals(5, result);
     }
@@ -154,7 +161,8 @@ class WorkflowPipelineTest {
         WorkflowException exception = assertThrows(WorkflowException.class, () -> {
             startPipeline("data")
                     .nextStep("fail", x -> ResponseWrapper.fail(error))
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
 
         assertEquals(error, exception.getError());
@@ -164,7 +172,8 @@ class WorkflowPipelineTest {
     void testMetrics_SuccessfulStep() {
         startPipeline(100)
                 .nextStep("testStep", x -> ResponseWrapper.success(x * 2))
-                .mapToUI(x -> x);
+                .mapToUI(x -> x)
+                .result();
 
         assertNotNull(meterRegistry.find("workflow.step.latency")
                 .tag("step", "testStep")
@@ -179,7 +188,8 @@ class WorkflowPipelineTest {
         assertThrows(WorkflowException.class, () -> {
             startPipeline("data")
                     .nextStep("failStep", x -> ResponseWrapper.fail(error))
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
 
         assertNotNull(meterRegistry.find("workflow.step.latency")
@@ -195,7 +205,8 @@ class WorkflowPipelineTest {
                     .nextStep("exceptionStep", x -> {
                         throw new RuntimeException("Test");
                     })
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
 
         assertNotNull(meterRegistry.find("workflow.step.latency")
@@ -215,7 +226,8 @@ class WorkflowPipelineTest {
                 .nextStep("add", x -> ResponseWrapper.success(x + 10))
                 .peek(x -> trace.add("afterAdd:" + x))
                 .nextStep("toString", x -> ResponseWrapper.success("Result=" + x))
-                .mapToUI(String::toUpperCase);
+                .mapToUI(String::toUpperCase)
+                .result();
 
         assertEquals("RESULT=20", result);
         assertEquals(3, trace.size());
@@ -226,7 +238,8 @@ class WorkflowPipelineTest {
         Double result = startPipeline("10")
                 .nextStep("parseInt", s -> ResponseWrapper.success(Integer.parseInt(s)))
                 .nextStep("multiply", i -> ResponseWrapper.success(i * 2.5))
-                .mapToUI(d -> d);
+                .mapToUI(d -> d)
+                .result();
 
         assertEquals(25.0, result);
     }
@@ -239,7 +252,8 @@ class WorkflowPipelineTest {
                 .peek(x -> peekLog.add("peek1:" + x))
                 .peek(x -> peekLog.add("peek2:" + x))
                 .peek(x -> peekLog.add("peek3:" + x))
-                .mapToUI(x -> x);
+                .mapToUI(x -> x)
+                .result();
 
         assertEquals("value", result);
         assertEquals(3, peekLog.size());
@@ -255,7 +269,8 @@ class WorkflowPipelineTest {
         WorkflowException exception = assertThrows(WorkflowException.class, () -> {
             startPipeline(1)
                     .nextStep("fail", x -> ResponseWrapper.fail(error))
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
 
         assertEquals("CUSTOM_ERR", exception.getError().errorCode());
@@ -267,7 +282,8 @@ class WorkflowPipelineTest {
     void testNullDataHandling() {
         String result = startPipeline((String) null)
                 .nextStep("handleNull", x -> ResponseWrapper.success(x == null ? "was-null" : x))
-                .mapToUI(x -> x);
+                .mapToUI(x -> x)
+                .result();
 
         assertEquals("was-null", result);
     }
@@ -280,7 +296,8 @@ class WorkflowPipelineTest {
             startPipeline("data")
                     .nextStep("fail1", x -> ResponseWrapper.fail(firstError))
                     .nextStep("fail2", x -> ResponseWrapper.fail(new ErrorDetails("ERR_SECOND", "Should not reach")))
-                    .mapToUI(x -> x);
+                    .mapToUI(x -> x)
+                    .result();
         });
 
         assertEquals("ERR_FIRST", exception.getError().errorCode());
@@ -293,7 +310,8 @@ class WorkflowPipelineTest {
 
         Integer result = startPipeline(100)
                 .nextStep("testStep", x -> ResponseWrapper.success(x * 2))
-                .mapToUI(x -> x);
+                .mapToUI(x -> x)
+                .result();
 
         assertEquals(200, result);
 

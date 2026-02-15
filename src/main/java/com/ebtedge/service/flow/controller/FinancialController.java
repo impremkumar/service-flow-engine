@@ -4,6 +4,8 @@ package com.ebtedge.service.flow.controller;
 import com.ebtedge.service.flow.core.WorkflowPipelineFactory;
 import com.ebtedge.service.flow.domain.ProfileData;
 import com.ebtedge.service.flow.domain.UIResponse;
+import com.ebtedge.service.flow.event.mapper.ReflectionEventMapper;
+import com.ebtedge.service.flow.event.mapper.UIResponseEventMapper;
 import com.ebtedge.service.flow.service.MockServiceA;
 import com.ebtedge.service.flow.service.MockServiceB;
 import jakarta.validation.constraints.Pattern;
@@ -41,7 +43,12 @@ public class FinancialController {
                     profileData.balance(), profileData.demographics()))
                 .mapToUI(profileData -> new UIResponse(
                     profileData.balance(),
-                    profileData.demographics()));
+                    profileData.demographics()))
+                // Two approaches for event publishing (choose one):
+                // 1. Annotation-based (RECOMMENDED) - uses @KafkaField annotations on domain classes
+                .andPublishEvent("ProfileFetched", ReflectionEventMapper.INSTANCE);
+                // 2. Manual mapper - provides explicit control over field selection
+                // .andPublishEvent("ProfileFetched", UIResponseEventMapper.INSTANCE);
 
         log.info("Successfully retrieved profile for accountId: {}", accountId);
         return response;
